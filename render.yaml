@@ -20,5 +20,5 @@ services:
         value: "false"
       - key: SPRING_SECURITY_JWT_SECRET
         generateValue: true
-      - key: APP_CORS_ALLOWED_ORIGIN_PATTERNS
+      - key: FRONTEND_URL
         value: https://skillswap-frontend-sand.vercel.app
