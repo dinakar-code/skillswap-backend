@@ -12,4 +12,5 @@ public interface ExchangeRequestRepository extends JpaRepository<ExchangeRequest
     List<ExchangeRequest> findBySenderOrReceiverOrderByCreatedAtDesc(User sender, User receiver);
     List<ExchangeRequest> findByReceiverOrderByCreatedAtDesc(User receiver);
     List<ExchangeRequest> findBySenderOrderByCreatedAtDesc(User sender);
+    java.util.Optional<ExchangeRequest> findById(Long id);
 }

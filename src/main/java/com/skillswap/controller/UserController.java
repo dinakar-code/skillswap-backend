@@ -34,6 +34,22 @@ public class UserController {
         return ResponseEntity.ok(userService.toUserResponse(userService.updateProfile(email, request)));
     }
 
+    @PatchMapping("/users/me/deactivate")
+    public ResponseEntity<UserResponse> deactivateAccount() {
+        return ResponseEntity.ok(userService.toUserResponse(userService.deactivateAccount(currentEmail())));
+    }
+
+    @PatchMapping("/users/me/activate")
+    public ResponseEntity<UserResponse> reactivateAccount() {
+        return ResponseEntity.ok(userService.toUserResponse(userService.reactivateAccount(currentEmail())));
+    }
+
+    @DeleteMapping("/users/me")
+    public ResponseEntity<Void> permanentlyDeleteAccount() {
+        userService.permanentlyDeleteAccount(currentEmail());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/users/search")
     public ResponseEntity<List<UserResponse>> searchUsers(@RequestParam(required = false, defaultValue = "") String query) {
         String email = currentEmail();

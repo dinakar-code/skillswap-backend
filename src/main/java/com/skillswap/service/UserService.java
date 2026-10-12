@@ -6,6 +6,13 @@ import com.skillswap.dto.UpdateProfileRequest;
 import com.skillswap.dto.UserResponse;
 import com.skillswap.model.Skill;
 import com.skillswap.model.User;
+import com.skillswap.model.ExchangeRequest;
+import com.skillswap.model.LearningSession;
+import com.skillswap.model.Review;
+import com.skillswap.repository.ChatMessageRepository;
+import com.skillswap.repository.ExchangeRequestRepository;
+import com.skillswap.repository.LearningSessionRepository;
+import com.skillswap.repository.ReviewRepository;
 import com.skillswap.repository.SkillRepository;
 import com.skillswap.repository.UserRepository;
 import com.skillswap.security.JwtService;
@@ -16,8 +23,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,6 +40,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final ExchangeRequestRepository exchangeRequestRepository;
+    private final LearningSessionRepository learningSessionRepository;
+    private final ReviewRepository reviewRepository;
+    private final ChatMessageRepository chatMessageRepository;
 
     public User register(RegisterRequest request) {
         String email = request.email().trim();
@@ -42,6 +55,8 @@ public class UserService {
         user.setName(request.name());
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password()));
+        user.setTeachingSkills(resolveSkills(request.teachingSkills()));
+        user.setLearningSkills(resolveSkills(request.learningSkills()));
         return userRepository.save(user);
     }
 
@@ -70,6 +85,38 @@ public class UserService {
         return findByEmail(email);
     }
 
+    public User deactivateAccount(String email) {
+        User user = getCurrentUser(email);
+        user.setActive(false);
+        return userRepository.save(user);
+    }
+
+    public User reactivateAccount(String email) {
+        User user = getCurrentUser(email);
+        user.setActive(true);
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public void permanentlyDeleteAccount(String email) {
+        User user = getCurrentUser(email);
+        List<ExchangeRequest> requests =
+                exchangeRequestRepository.findBySenderOrReceiverOrderByCreatedAtDesc(user, user);
+        if (!requests.isEmpty()) {
+            chatMessageRepository.deleteByExchangeRequestIn(requests);
+            exchangeRequestRepository.deleteAll(requests);
+        }
+
+        List<LearningSession> sessions =
+                learningSessionRepository.findByInitiatorOrPartnerOrderByScheduledAtDesc(user, user);
+        learningSessionRepository.deleteAll(sessions);
+
+        List<Review> reviews = reviewRepository.findByReviewerOrReviewee(user, user);
+        reviewRepository.deleteAll(reviews);
+
+        userRepository.delete(user);
+    }
+
     public User updateProfile(String email, UpdateProfileRequest request) {
         User user = getCurrentUser(email);
         if (request.name() != null) user.setName(request.name());
@@ -85,8 +132,7 @@ public class UserService {
 
     public User addTeachingSkill(String email, String skillName) {
         User user = getCurrentUser(email);
-        Skill skill = skillRepository.findByName(skillName.trim())
-                .orElseGet(() -> skillRepository.save(new Skill(skillName.trim())));
+        Skill skill = findOrCreateSkill(skillName);
         user.getTeachingSkills().add(skill);
         return userRepository.save(user);
     }
@@ -99,8 +145,7 @@ public class UserService {
 
     public User addLearningSkill(String email, String skillName) {
         User user = getCurrentUser(email);
-        Skill skill = skillRepository.findByName(skillName.trim())
-                .orElseGet(() -> skillRepository.save(new Skill(skillName.trim())));
+        Skill skill = findOrCreateSkill(skillName);
         user.getLearningSkills().add(skill);
         return userRepository.save(user);
     }
@@ -124,6 +169,7 @@ public class UserService {
         }
 
         return result.stream()
+                .filter(User::isActive)
                 .sorted(Comparator.comparingInt(User::getProfileCompletion).reversed())
                 .limit(20)
                 .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -141,9 +187,27 @@ public class UserService {
                 user.getInterests(),
                 user.getAvailability(),
                 user.getLearningPreference(),
+                user.isActive(),
                 user.getProfileCompletion(),
                 user.getTeachingSkills().stream().map(Skill::getName).sorted().toArray(String[]::new),
                 user.getLearningSkills().stream().map(Skill::getName).sorted().toArray(String[]::new)
         );
+    }
+
+    private Set<Skill> resolveSkills(List<String> skillNames) {
+        if (skillNames == null) {
+            return Set.of();
+        }
+
+        return skillNames.stream()
+                .filter(skillName -> skillName != null && !skillName.isBlank())
+                .map(this::findOrCreateSkill)
+                .collect(Collectors.toSet());
+    }
+
+    private Skill findOrCreateSkill(String skillName) {
+        String normalizedName = skillName.trim();
+        return skillRepository.findByName(normalizedName)
+                .orElseGet(() -> skillRepository.save(new Skill(normalizedName)));
     }
 }

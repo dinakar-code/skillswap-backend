@@ -25,6 +25,8 @@ public class DashboardController {
     public ResponseEntity<Map<String, Object>> getDashboard() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userService.getCurrentUser(auth.getName());
-        return ResponseEntity.ok(dashboardService.buildDashboard(user));
+        Map<String, Object> dashboard = dashboardService.buildDashboard(user);
+        dashboard.put("profile", userService.toUserResponse(user));
+        return ResponseEntity.ok(dashboard);
     }
 }

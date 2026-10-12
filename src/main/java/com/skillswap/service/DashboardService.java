@@ -1,5 +1,6 @@
 package com.skillswap.service;
 
+import com.skillswap.dto.ExchangeRequestResponse;
 import com.skillswap.model.ExchangeRequest;
 import com.skillswap.model.LearningSession;
 import com.skillswap.model.Review;
@@ -32,15 +33,21 @@ public class DashboardService {
         dashboard.put("teachingSkills", currentUser.getTeachingSkills());
         dashboard.put("learningSkills", currentUser.getLearningSkills());
 
-        List<User> users = userRepository.findAll();
+        List<User> users = userRepository.findAll().stream().filter(User::isActive).toList();
         List<Map<String, Object>> matches = matchingService.findMatches(currentUser, users);
         dashboard.put("suggestedPartners", matches);
 
         List<ExchangeRequest> incomingRequests = exchangeRequestRepository.findByReceiverOrderByCreatedAtDesc(currentUser);
-        dashboard.put("incomingRequests", incomingRequests);
+
+        dashboard.put("incomingRequests", incomingRequests.stream()
+                .map(ExchangeRequestResponse::from)
+                .toList());
 
         List<ExchangeRequest> outgoingRequests = exchangeRequestRepository.findBySenderOrderByCreatedAtDesc(currentUser);
-        dashboard.put("outgoingRequests", outgoingRequests);
+
+        dashboard.put("outgoingRequests", outgoingRequests.stream()
+                .map(ExchangeRequestResponse::from)
+                .toList());
 
         List<LearningSession> sessions = learningSessionRepository.findByInitiatorOrPartnerOrderByScheduledAtDesc(currentUser, currentUser);
         dashboard.put("upcomingSessions", sessions.stream().filter(s -> s.getStatus() != LearningSession.SessionStatus.COMPLETED && s.getStatus() != LearningSession.SessionStatus.CANCELLED).toList());

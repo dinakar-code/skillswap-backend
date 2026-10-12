@@ -1,6 +1,7 @@
 package com.skillswap.controller;
 
 import com.skillswap.dto.RequestCreateRequest;
+import com.skillswap.dto.ExchangeRequestResponse;
 import com.skillswap.model.ExchangeRequest;
 import com.skillswap.model.Skill;
 import com.skillswap.model.User;
@@ -25,15 +26,24 @@ public class ExchangeRequestController {
     private final SkillRepository skillRepository;
 
     @GetMapping("/requests")
-    public ResponseEntity<List<ExchangeRequest>> getRequests() {
+    public ResponseEntity<List<ExchangeRequestResponse>> getRequests() {
         User currentUser = currentUser();
-        return ResponseEntity.ok(exchangeRequestRepository.findBySenderOrReceiverOrderByCreatedAtDesc(currentUser, currentUser));
+        return ResponseEntity.ok(exchangeRequestRepository.findBySenderOrReceiverOrderByCreatedAtDesc(currentUser, currentUser)
+                .stream()
+                .map(ExchangeRequestResponse::from)
+                .toList());
     }
 
     @PostMapping("/requests")
-    public ResponseEntity<ExchangeRequest> createRequest(@RequestBody RequestCreateRequest request) {
+    public ResponseEntity<ExchangeRequestResponse> createRequest(@RequestBody RequestCreateRequest request) {
         User current = currentUser();
+        if (!current.isActive()) {
+            throw new IllegalArgumentException("Reactivate your profile before sending exchange requests.");
+        }
         User receiver = userService.findById(request.receiverId());
+        if (!receiver.isActive()) {
+            throw new IllegalArgumentException("This profile is not currently accepting exchange requests.");
+        }
         Skill wantedSkill = skillRepository.findByName(request.wantedSkill())
                 .orElseGet(() -> skillRepository.save(new Skill(request.wantedSkill())));
         Skill offeredSkill = skillRepository.findByName(request.offeredSkill())
@@ -48,11 +58,11 @@ public class ExchangeRequestController {
                 .status(ExchangeRequest.RequestStatus.PENDING)
                 .build();
 
-        return ResponseEntity.ok(exchangeRequestRepository.save(exchangeRequest));
+        return ResponseEntity.ok(ExchangeRequestResponse.from(exchangeRequestRepository.save(exchangeRequest)));
     }
 
     @PatchMapping("/requests/{id}/respond")
-    public ResponseEntity<ExchangeRequest> respond(@PathVariable Long id, @RequestParam String action) {
+    public ResponseEntity<ExchangeRequestResponse> respond(@PathVariable Long id, @RequestParam String action) {
         ExchangeRequest request = exchangeRequestRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (!request.getReceiver().getEmail().equalsIgnoreCase(currentUser().getEmail())) {
             throw new IllegalArgumentException("Only the receiver can respond to a request.");
@@ -65,7 +75,7 @@ public class ExchangeRequestController {
             default -> throw new IllegalArgumentException("Unsupported action");
         }
 
-        return ResponseEntity.ok(exchangeRequestRepository.save(request));
+        return ResponseEntity.ok(ExchangeRequestResponse.from(exchangeRequestRepository.save(request)));
     }
 
     private User currentUser() {

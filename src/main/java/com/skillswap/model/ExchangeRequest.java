@@ -40,9 +40,11 @@ public class ExchangeRequest {
     private String message;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private RequestStatus status = RequestStatus.PENDING;
 
     @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum RequestStatus {

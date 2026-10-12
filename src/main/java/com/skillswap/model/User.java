@@ -43,6 +43,10 @@ public class User {
     private String availability;
     private String learningPreference;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private boolean active = true;
+
     @ManyToMany
     @JoinTable(
         name = "user_teaching_skills",
