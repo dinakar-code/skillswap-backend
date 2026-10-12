@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(
         classes = SkillSwapApplication.class,
-        properties = "FRONTEND_URL=https://skillswap-frontend-sand.vercel.app"
+        properties = "FRONTEND_URL=https://skillswap-frontend-gamma.vercel.app"
 )
 @AutoConfigureMockMvc
 class SkillSwapApiIntegrationTest {
@@ -37,12 +37,12 @@ class SkillSwapApiIntegrationTest {
     @Test
     void loginPreflightAllowsVercelFrontend() throws Exception {
         mockMvc.perform(options("/api/auth/login")
-                        .header("Origin", "https://skillswap-frontend-sand.vercel.app")
+                        .header("Origin", "https://skillswap-frontend-gamma.vercel.app")
                         .header("Access-Control-Request-Method", "POST")
                         .header("Access-Control-Request-Headers", "authorization,content-type"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin",
-                        "https://skillswap-frontend-sand.vercel.app"))
+                        "https://skillswap-frontend-gamma.vercel.app"))
                 .andExpect(header().string("Access-Control-Allow-Methods",
                         allOf(
                                 containsString("GET"),
